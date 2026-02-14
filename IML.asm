@@ -326,6 +326,7 @@ IB2D1:  PUSH D
         DCX D           ;Ptr to end of string
         POP H           ;Ptr to beginning of string
         PUSH B          ;Save a copy of minus flag and digit count
+        DCR C
 IB2D2:  MOV B,M         ;Leading char to temp
         LDAX D          ;Get next trailing char
         MOV M,A         ;...move it
