@@ -17,3 +17,16 @@ Procedures & execution times (2 MHz 8080)
 *   ID2B:  DECIMAL NUMBER IS CONVERTED TO BINARY
 *   IB2D:  BINARY NUMBER IS CONVERTED TO DECIMAL
 ***
+**UIML.asm - 8080/8085 UNSIGNED INTEGER MATH LIBRARY** <br>
+The Unsigned Integer Math Library (UIML) contains basic integer subroutines and functions.  The operations provided are: addition, subtraction, multiplication, division, value comparison, and conversion between decimal and binary integer representations.
+
+UIML procedures operate on single precision unsigned integer binary numbers in the range: [0 to 65535]. <br>
+
+Procedures & execution times (2 MHz 8080)
+*   UADD:  HL = HL + DE (16 uS)
+*   USUB:  HL = HL - DE (25 uS)
+*   UMUL:  HL = HL * DE (112 to 373 uS)
+*   UDIV:  HL = HL / DE (54 to 2352 uS)
+*   UCMP:  CY & Z FLAGS SET TO REFLECT HL - DE
+*   UD2B:  DECIMAL NUMBER IS CONVERTED TO BINARY
+*   UB2D:  BINARY NUMBER IS CONVERTED TO DECIMAL
