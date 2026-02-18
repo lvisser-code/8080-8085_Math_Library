@@ -13,7 +13,7 @@
 ;   USUB  HL = HL - DE          25 uS
 ;   UMUL  HL = HL * DE          112 to 372 uS
 ;   UDIV  HL = HL / DE          54 to 2352 uS
-;   UCMP  CY & Z FLAGS SET TO REFLECT HL - DE
+;   UCMP  S & Z FLAGS SET TO REFLECT HL - DE
 ;   UD2B  DECIMAL NUMBER IS CONVERTED TO BINARY
 ;   UB2D  BINARY NUMBER IS CONVERTED TO DECIMAL
 ;
@@ -151,8 +151,19 @@ UDIVF1: LXI D,0         ;Remainder = 0
         RET
 
 ;Fast divide by 2
-UDIVF2: CALL UDIVR      ;Right shift HL
-        JMP UDIVF1
+UDIVF2: XRA A           ;Clear CY
+        MOV A,H         ;Shift H
+        RAR
+        MOV H,A
+        MOV A,L         ;Shift L
+        RAR
+        MOV L,A
+        LXI D,0         ;Set DE remainder = CY
+        MOV A,E
+        RAL
+        MOV E,A
+        POP B
+        RET
 
 
 ;Right shift HL, remainder returned in CY, Z set if zero
