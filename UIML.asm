@@ -12,7 +12,7 @@
 ;   UADD  HL = HL + DE          16 uS
 ;   USUB  HL = HL - DE          25 uS
 ;   UMUL  HL = HL * DE          112 to 372 uS
-;   UDIV  HL = HL / DE          54 to 2352 uS
+;   UDIV  HL = HL / DE          282 to 2233 uS
 ;   UCMP  S & Z FLAGS SET TO REFLECT HL - DE
 ;   UD2B  DECIMAL NUMBER IS CONVERTED TO BINARY
 ;   UB2D  BINARY NUMBER IS CONVERTED TO DECIMAL
@@ -21,7 +21,7 @@
 ;**********************************************************************
 
 ERROF:  HLT             ;Add code here to handle overflow errors
-
+ERRUF:  HLT             ;Add code here to handle underflow errors
         
 ;------------------------------- UADD ---------------------------------
 ; Integer addition.
@@ -29,14 +29,14 @@ ERROF:  HLT             ;Add code here to handle overflow errors
 ; On retn: HL contains the result.
 ;----------------------------------------------------------------------
 UADD:   DAD D           ;HL=HL+DE: Only CY flag affected
-        CC  ERROF       ;If overflow, then call error handler
+        JC  ERROF       ;Check for overflow error
         RET
 
 
 ;------------------------------- USUB ---------------------------------
 ; Integer subtraction.
 ; On call: Register HL contains minuend and DE contains subtrahend.
-; On retn: HL contains the result.
+; On retn: HL contains the result.  Reg A trashed.
 ;----------------------------------------------------------------------
 USUB:   MOV A,L         ;Get low byte of minuend
         SUB E           ;Subtract low byte of subtrahend
@@ -44,14 +44,14 @@ USUB:   MOV A,L         ;Get low byte of minuend
         MOV A,H         ;Get high byte of minuend
         SBB D           ;Subtract high byte of subtrahend
         MOV H,A         ;H = result
-        CC ERROF        ;If underflow, then call error handler
+        JC ERRUF        ;Check for underflow error
         RET
 
 
 ;------------------------------- UMUL ---------------------------------
 ; Integer multiplication.
 ; On call: Registers HL and DE contain the multiplicands.
-; On retn: HL contains the result.
+; On retn: HL contains the result.  Reg A trashed.
 ;----------------------------------------------------------------------
 UMUL:   PUSH D
         XRA A           ;Test for HL less than 256
@@ -59,20 +59,18 @@ UMUL:   PUSH D
         JZ UMUL1        ;Branch if HL less than
         XRA A
         ADD D           ;Else, DE must be < 256...
-        CNZ ERROF       ;...or overflow would result
+        JNZ ERROF       ;...or overflow would result
         XCHG            ;HL now has an op < 256
 UMUL1:  MOV A,L         ;Move 255 or less multiplier to A
         LXI H,0         ;Initialize partial product
-UMUL2:  STC
-        CMC
+UMUL2:  ORA A           ;Clear carry
         RAR             ;Rotate multiplier right off end
         JNC UMUL3       ;If bit shifted out was 0, skip
         DAD D           ;Else, add multiplicand to partial product
-        CC  ERROF       ;...while checking for overflow
+        JC  ERROF       ;...while checking for overflow
 UMUL3:  XCHG
         DAD H           ;Shift multiplicand left 1 bit...
         XCHG
-        ORA A
         JNZ UMUL2       ;Branch to top of loop if mult is non-0
         POP D
         RET
@@ -81,16 +79,16 @@ UMUL3:  XCHG
 ;------------------------------- UDIV ---------------------------------
 ; Integer division.
 ; On call: HL = dividend, DE = divisor.
-; On retn: HL = quotient, DE = remainder.
+; On retn: HL = quotient, DE = remainder.  Reg A trashed.
 ;----------------------------------------------------------------------
 UDIV:   PUSH B
-        MOV A,D         ;If divisor MSB = 0...
+        MOV A,D         ;If divisor high byte is non-0...
         ORA A
         JNZ UDIV0       ;...then skip
 ;Check for special cases
-        MOV A,E         ;If divisor LSB = 0...
+        MOV A,E         ;If divisor low byte is 0...
         ORA A
-        CZ  ERROF       ;...then call error handler (divide by 0)
+        JZ  ERROF       ;...then overflow error (divide by 0)
         CPI 1           ;If divisor = 1...
         JZ UDIVF1       ;...then branch to fast divide by 1
         CPI 2           ;If divisor = 2...
@@ -102,7 +100,7 @@ UDIV0:  MOV C,L         ;Move dividend (=rem) to BC
         PUSH H          ;...on top of stack (TOS)
         INR L           ;Initialize HL (pos) = 1
 ;Now BC = rem, DE=div, HL = pos, TOS=quo
-;Shift pos & div left until rem >= div
+;Shift pos & div left until div >= rem
 UDIV1:  MOV A,D         ;If msb of div = 1...
         RAL
         JC UDIV3        ;...jump
@@ -111,9 +109,9 @@ UDIV1:  MOV A,D         ;If msb of div = 1...
         DAD H           ;div = div*2 (shift left)
         XCHG
         MOV A,C         ;If div < rem...
-        SUB L
+        SUB E
         MOV A,B
-        SBB H
+        SBB D
         JNC UDIV1       ;...loop
 
 UDIV2:  CALL UDIVR      ;pos = pos/2 (shift right)
@@ -146,9 +144,9 @@ UDIV4:  POP H           ;Get quotient to HL
         RET
 
 ;Fast divide by 1
-UDIVF1: LXI D,0         ;Remainder = 0
-        POP B
-        RET
+UDIVF1: DCX D           ;When decremented DE=1 becomes 0
+        POP B           ;...which is correct remainder
+        RET             ;...HL is returned unchanged.
 
 ;Fast divide by 2
 UDIVF2: XRA A           ;Clear CY
