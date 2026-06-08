@@ -6,7 +6,7 @@
 ; and conversion between decimal and binary integer representations.
 ;
 ; IML procedures operate on single precision integer binary numbers
-; in the range: [-32767, +32767].  The value 8000H is NaN.
+; in the range: [-32767, +32767].  The value -32768 is invalid.
 ;
 ; Procedures & execution times (2 MHz 8080)
 ;   IADD  HL = HL + DE          20 to 29 uS
@@ -23,14 +23,16 @@
 ; Author: Leonard Visser
 ;**********************************************************************
 
+
 ERROF:  HLT             ;Add code here to handle overflow errors
+ERRUF:  HLT             ;Add code here to handle underflow errors
 ERRCV:  HLT             ;Add code here to handle conversion errors
 
 
 ;------------------------------- IADD ---------------------------------
 ; Integer addition.
 ; On call: Registers DE and HL contain the addends.
-; On retn: HL contains the result.
+; On retn: HL contains the result. Reg A trashed.
 ;----------------------------------------------------------------------
 IADD:   MOV A,D         ;Clear Z flag if addend signs differ
         XRA H
@@ -39,14 +41,14 @@ IADD:   MOV A,D         ;Clear Z flag if addend signs differ
         RNZ             ;If signs differ, no need to check for overflow
         RAR             ;If signs same then XOR CY with sign of result
         XRA H           ;Now A is negative if overflow
-        CM ERROF        ;If overflow, then call error handler
+        JM ERROF        ;Check for overflow error
         RET
 
 
 ;------------------------------- ISUB ---------------------------------
 ; Integer subtraction.
 ; On call: Register HL contains minuend and DE contains subtrahend.
-; On retn: HL contains the result.
+; On retn: HL contains the result. Reg A trashed.
 ;----------------------------------------------------------------------
 ISUB:   PUSH  B
         MOV A,D         ;XOR signs of operands...
@@ -58,14 +60,14 @@ ISUB:   PUSH  B
         MOV A,H
         SBB D           ;Subtract MSBs with borrow
         MOV H,A         ;Now HL = result
-        RAR
-        MOV C,A         ;Save CY in msb of C
+        RAR             ;Move final borrow (CY) into bit 7
+        MOV C,A         ;Save in C
         MOV A,B         ;Get XOR of operand signs
         ANI 80H
         JZ ISUB1        ;If signs same, no need to check for overflow
         MOV A,C         ;Exclusive or CY with sign of result
         XRA H           ;Now A msb = 0 if overflow
-        JP ERROF        ;If overflow, then call error handler
+        JP ERRUF        ;Check for underflow.
 ISUB1:  POP B
         RET
 
@@ -73,7 +75,7 @@ ISUB1:  POP B
 ;------------------------------- IMUL ---------------------------------
 ; Integer multiplication.
 ; On call: Registers DE and HL contain the multiplicands.
-; On retn: HL contains the result.
+; On retn: HL contains the result. Reg A trashed.
 ;----------------------------------------------------------------------
 IMUL:   PUSH B
         PUSH D
@@ -83,19 +85,18 @@ IMUL:   PUSH B
         JZ IMUL1
         MOV A,D         ;and DE is > 255...
         ORA A
-        CNZ ERROF       ;...then overflow - call error handler
+        JNZ ERROF       ;...then overflow error
         XCHG            ;HL is now < 256
 IMUL1:  MOV A,L         ;Move small multiplier to A
         LXI H,0         ;Initialize partial product
-IMUL2:  STC
-        CMC
+IMUL2:  ORA A           ;Clear carry
         RAR             ;Rotate multiplier lsb into CY
         JNC IMUL3       ;If bit = 0 then skip
         DAD D           ;else, add multiplicand to partial product
-        CC  ERROF       ;If overflow then call error handler
+        JC  ERROF       ;If overflow then error
 IMUL3:  XCHG
         DAD H           ;Shift multiplicand left 1 bit
-        CC ERROF        ;If overflow then call error handler
+        JC ERROF        ;Check for overflow error
         XCHG
         ORA A
         JNZ IMUL2       ;If multiplier > 0 then loop
@@ -103,7 +104,7 @@ IMUL3:  XCHG
 ; Compute final sign of result.
 IFNL:   MOV A,H         ;If result > 32767...
         RLC
-        CC  ERROF       ;...then overflow - call error handler
+        JC  ERROF       ;...then overflow error
         MOV A,B         ;Get sign bit
         RAL
         CC  INEG        ;Change sign if negative
@@ -131,12 +132,12 @@ ISWP:   MOV B,H         ;Move sign of 1st operand to B msb...
 ;------------------------------- IDIV ---------------------------------
 ; Integer division.
 ; On call: HL = dividend, DE = divisor.
-; On retn: HL = quotient, DE = remainder.
+; On retn: HL = quotient, DE = remainder. Reg A trashed.
 ;----------------------------------------------------------------------
 IDIV:   PUSH B
         MOV A,D         ;Check for divide by zero
         ORA E
-        CZ  ERROF       ;If zero, then call error handler
+        JZ  ERROF       ;If zero, then branch to error handler
         CALL ISWP       ;Compute result sign in B and swap(|DE|&|HL|)
         PUSH B          ;Save result sign byte
         MOV C,E         ;Move dividend (REMainder) to BC
@@ -200,7 +201,7 @@ INEG:   MOV A,H         ;If HL = -32768...
         JNZ INEG2
         MOV A,L
         ORA A
-        CZ ERROF        ;...then call error handler
+        JZ ERROF        ;...then overflow error
 INEG2:  MOV A,H         ;Form 2s complement of HL
         CMA             ;Complement H
         MOV H,A
@@ -213,12 +214,13 @@ INEG2:  MOV A,H         ;Form 2s complement of HL
 
 ;------------------------------- ICMP ---------------------------------
 ; Integer compare.  Flags S and Z set per result of HL - DE
+; Z flag is set if result is zero, S flag set if result is negative.
 ;----------------------------------------------------------------------
-ICMP:   MOV A,L
+ICMP:   MOV A,L         ;Subtract DE from HL
         SUB E
         MOV A,H
-        SBB D
-        RET
+        SBB D           ;Flags now set
+        RET             ;Return with HL and DE unchanged.
 
 
 ;------------------------------- IFLG ---------------------------------
@@ -271,7 +273,7 @@ ID2B2:  MOV A,C         ;Recall (char-48)
 ID2B3:  MOV A,B         ;If sign encountered flag is set...
         RLC
         RLC
-        CC ERRCV        ;...then call error handler
+        JC ERRCV        ;...then branch to error handler
         MOV A,C         ;Recall (char-48)
         CPI 0FDH        ;Is it "-"?
         JNZ ID2B4       ;...no, then test for "+" sign
@@ -281,7 +283,7 @@ ID2B3:  MOV A,B         ;If sign encountered flag is set...
         INX D           ;Inc ptr
         JMP ID2B1       ;Loop back for next char
 ID2B4:  CPI 0FBH        ;Is it "+"?
-        CNZ ERRCV       ;...no, then call error handler
+        JNZ ERRCV       ;...no, then branch to error handler
         MVI A,40H       ;...yes - set sign encountered flag
         ORA B
         MOV B,A
