@@ -1,5 +1,28 @@
 # 8080-8085 Math Library
 ## Assembly language routines to extend the math capabilities of Intel 8080/8085 microprocessors.
+
+**FPML.asm - 8080/8085 FLOATING-POINT MATH LIBRARY** <br>
+This module contains basic floating point subroutines and functions. Intended for retrocomputing, this module is not strictly IEEE 754 compliant.
+
+FPML procedures operate on sigle precision floating-point numbers.
+
+Procedures:
+*  FADD: Addition
+*  FSUB: Subtraction
+*  FMUL: Multiplication
+*  FDIV: Division
+*  FSQRT: Square Root
+*  FQFD2B: Convert decimal to binary
+*  FQFB2D: Convert binary to decimal
+*  FIXSD: Convert float to integer
+*  FLTDS: Convert integer to float
+*  FCMPR: Compare two floats
+*  FZTST: Compare float to zero
+*  FNEG: Negate a float
+*  FCLR: Clear to zero
+*  FABS: Absolute value
+***
+
 **IML.asm - 8080/8085 INTEGER MATH LIBRARY** <br>
 The Integer Math Library (IML) contains basic integer subroutines and functions.  The operations provided are: addition, subtraction, multiplication, division, value comparison, negation, absolute value, and conversion between decimal and binary integer representations.
 
@@ -17,6 +40,7 @@ Procedures & execution times (2 MHz 8080)
 *   ID2B:  DECIMAL NUMBER IS CONVERTED TO BINARY
 *   IB2D:  BINARY NUMBER IS CONVERTED TO DECIMAL
 ***
+
 **UIML.asm - 8080/8085 UNSIGNED INTEGER MATH LIBRARY** <br>
 The Unsigned Integer Math Library (UIML) contains basic integer subroutines and functions.  The operations provided are: addition, subtraction, multiplication, division, value comparison, and conversion between decimal and binary integer representations.
 
