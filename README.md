@@ -1,10 +1,10 @@
 # 8080-8085 Math Library
 ## Assembly language routines to extend the math capabilities of Intel 8080/8085 microprocessors.
 
-**FPML.asm - 8080/8085 FLOATING-POINT MATH LIBRARY** <br>
+**FML.asm - 8080/8085 FLOATING-POINT MATH LIBRARY** <br>
 This module contains basic floating point subroutines and functions. Intended for retrocomputing, this module is not strictly IEEE 754 compliant.
 
-FPML procedures operate on sigle precision floating-point numbers.
+FML procedures operate on sigle precision floating-point numbers.
 
 Procedures:
 *  FADD: Addition
